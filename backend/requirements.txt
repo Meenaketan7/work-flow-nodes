@@ -1,0 +1,10 @@
+# Forge BFF runtime deps.  Install into the uv venv:
+#   uv venv --python 3.12 .venv && source .venv/bin/activate
+#   uv pip install -r requirements.txt
+#   uv pip install ~/Work/my_project/lemma-platform/lemma-python   # the Lemma SDK (local checkout)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+httpx>=0.27
+pydantic>=2
+# lemma-sdk is installed from the local lemma-platform checkout (see line above),
+# not from PyPI, because the hackathon build pins lemma-sdk==0.5.3 from source.
