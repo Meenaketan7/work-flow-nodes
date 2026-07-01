@@ -3,7 +3,7 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Layers, Maximize, Unlock, ZoomIn, ZoomOut, Lock } from "lucide-react";
+import { LayoutGrid, Layers, Maximize, Unlock, ZoomIn, ZoomOut, Lock } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Panel, useReactFlow, useViewport } from "reactflow";
 //--- Helper Component to prevent repetitive Tooltip/Button code ---
@@ -45,10 +45,12 @@ function ControlButton({
 // --- Main Controls Component ---
 export function PipelineController({
 	onToggleMinimap,
-	onToggleLock
+	onToggleLock,
+	onArrange
 }: {
 	onToggleMinimap?: () => void;
 	onToggleLock?: (isLocked: boolean) => void;
+	onArrange?: () => void;
 }) {
 	const { zoomIn, zoomOut, fitView, zoomTo } = useReactFlow();
 	const { zoom } = useViewport();
@@ -90,6 +92,16 @@ export function PipelineController({
 							label="Fit to View"
 							onClick={() => fitView({ duration: 400, padding: 0.2 })}
 						/>
+						{onArrange && (
+							<ControlButton
+								icon={LayoutGrid}
+								label="Arrange nodes"
+								onClick={() => {
+									onArrange();
+									fitView({ duration: 500, padding: 0.2 });
+								}}
+							/>
+						)}
 						<ControlButton
 							icon={isLocked ? Lock : Unlock}
 							label={isLocked ? "Unlock Canvas" : "Lock Canvas"}
