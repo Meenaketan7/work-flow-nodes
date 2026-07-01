@@ -1,4 +1,4 @@
-# Forge — AI Build Operator for Solo Founders
+# Forge — AI Build Operator 
 
 > A Lemma-native canvas that turns a one-line idea into a live, editable system-architecture DAG + backlog, then keeps drafting → building → shipping under one persistent state.
 
