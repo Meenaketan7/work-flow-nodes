@@ -203,10 +203,10 @@ def generate_steps(pod, prompt: str, name: str | None = None):
     yield {"stage": "decompose"}
     reply = ask(pod, (
         "You are a senior software architect. Using the GUIDANCE below, decompose the "
-        "product idea into a FOCUSED system map AND its first build tasks in a SINGLE pass. "
-        "Cover the CORE components across the relevant layers (client, api, data, "
-        "integration, infra) — aim for about 8–14 nodes, the ones that matter, no filler. "
-        "Keep every summary to ONE short clause.\n"
+        "product idea into a COMPLETE, production-quality system map AND its first build "
+        "tasks in a SINGLE pass. Include every component the system genuinely needs across "
+        "all relevant layers (client, api, data, integration, infra). Do not truncate or "
+        "cap node count, but no filler.\n"
         "Output EXACTLY two parts and nothing else:\n"
         "1) a ```json fenced block of shape:\n"
         '{"nodes":[{"id":"kebab-slug","layer":"client|api|data|integration|infra",'
@@ -214,7 +214,7 @@ def generate_steps(pod, prompt: str, name: str | None = None):
         '"edges":[{"source":"id","target":"id"}],'
         '"tasks":[{"node":"id","title":"first concrete build task"}]}\n'
         "   Rules: an edge means target depends on source; ids unique kebab-case; the graph "
-        "MUST be a DAG (no cycles) and fully connected (no orphans); exactly 1 task per node.\n"
+        "MUST be a DAG (no cycles) and fully connected (no orphans); 1-2 tasks per node.\n"
         "2) a markdown section starting with `## Build Summary`: a one-line overview, then "
         "one bullet per node `- **title** (layer) — what it does`, then a `Build first:` line.\n"
         f"\nIDEA: {prompt}\n\nGUIDANCE:\n{guidance}"

@@ -7,18 +7,6 @@ Verified live end-to-end against the real Lemma Cloud pod, BFF, and browser.
 
 ---
 
-## 🔗 Live product link
-
-**https://forge-build-operator.apps.lemma.work**
-
-Fully deployed on Lemma — **no server of our own, no laptop dependency**. The React
-app is hosted as a Lemma app on `lemma.work`; the entire backend runs as two Lemma
-**functions** (`forge_api`, `forge_generate`) that authenticate as their own workload
-principal. Sign in with a Lemma account to use it. See [§5](#5-architecture) for the
-deployed topology.
-
----
-
 ## Table of contents
 
 1. [Problem statement](#1-problem-statement)
@@ -165,40 +153,6 @@ lemma agents update hello --pod forge -d '{"agent_runtime": <profile-id>}'
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Deployed topology (production — the live link)
-
-The FastAPI BFF above is the **local-dev** transport. In production there is **no
-server of ours at all**: the same React app is deployed as a Lemma app on
-`lemma.work`, and every BFF route was ported onto two **Lemma functions** that run
-on the Lemma runtime (always-on, free) and authenticate as their own **workload
-principal** — so the hourly token self-heal simply disappears.
-
-```
-Browser  →  https://forge-build-operator.apps.lemma.work   (Lemma sign-in)
-  host injects window.__LEMMA_CONFIG__ + serves /public/sdk/lemma-client.js
-        │  client.functions.run("forge_api",  { action, … })      ← fast ops (API fn)
-        │  client.functions.run("forge_generate", { prompt })     ← generation (JOB fn, polled)
-        ▼
-Lemma functions  (Pod.from_env() = workload principal; grants on the tables/folder/agent)
-  forge_api       (type API) → projects · project · guidance · node_status ·
-                               lock/unlock · export · digest · node+edge CRUD · relayout
-  forge_generate  (type JOB) → generate_architecture  (runs ~2 min → async)
-        ▼
-Same pod "forge": tables · /knowledge · agent "hello"
-```
-
-- **One frontend file changed** (`src/lib/forge-api.ts`): it feature-detects
-  `window.__LEMMA_CONFIG__` and routes to `client.functions.run(...)` when hosted, or
-  the REST BFF when local — identical return shapes, so the canvas/nodes are untouched.
-  A small `src/lib/lemma-client.ts` loads the SDK + gates auth before the app mounts.
-- **Backend as functions** lives in `backend/forge-fn/` — `build.py` inlines the
-  `backend/lemma-map/` core modules into one `code.py` per function (function bundles
-  ship a single file), keeping `lemma-map/` the single source of truth. Grants are
-  declared in each function's JSON bundle.
-- The only UX difference from local: hosted generation is a polled JOB with a
-  "building…" state instead of the live SSE stage-stepper (functions can't stream to
-  the browser). Everything else is identical.
-
 **Layered data model** (all in the pod, all mutated via `pod.records`):
 
 - `projects` — `id`, `name`, `status`, `design_locked`, `summary` (markdown), timestamps.
@@ -326,28 +280,6 @@ bun run build          # tsc -b && vite build — the real typecheck
 #       (fake "tsc" v6.0.3 that prints help). Use ./node_modules/.bin/tsc
 #       for a bare tsc if you need one.
 ```
-
-### Deploy / redeploy (the live link)
-
-```bash
-# Backend: (re)build the single-file function bundles from lemma-map/, then import
-cd backend
-.venv/bin/python forge-fn/build.py
-lemma pods import forge-fn/functions            # creates/updates forge_api + forge_generate
-
-# Frontend: build, then deploy the static bundle as a Lemma app
-cd ../frontend
-bun run build
-lemma apps deploy forge-build-operator dist --yes
-
-# Smoke without a browser
-lemma functions run forge_api -d '{"action":"projects"}'
-lemma functions run forge_generate -d '{"prompt":"a todo app"}' --wait
-```
-
-Grant judges access: add **ayush@gappy.ai** as a pod member from the Lemma web
-console (pod **forge** → Members → invite). The deployed app is `visibility: POD`,
-so pod members can open the URL and sign in.
 
 ---
 
