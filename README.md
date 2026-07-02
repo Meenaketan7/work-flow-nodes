@@ -1,9 +1,20 @@
-# Forge — AI Build Operator 
+# Forge — AI Build Operator for Solo Founders
 
-> A Lemma-native canvas that turns a one-line idea into a live, editable system-architecture DAG + backlog, then keeps drafting → building → shipping under one persistent state.
+> A canvas that turns a one-line idea into a live, editable system-architecture DAG and backlog, then keeps drafting → building → shipping under one persistent state.
 
-Built for the **Gappy.ai hackathon (powered by Lemma SDK)**, deadline 2026-06-30.
-Verified live end-to-end against the real Lemma Cloud pod, BFF, and browser.
+Built on the Lemma SDK. Verified live end-to-end against the real Lemma Cloud pod, BFF, and browser.
+
+---
+
+## Live product link
+
+**https://forge-build-operator.apps.lemma.work**
+
+Fully deployed on Lemma — no server of our own, no laptop dependency. The React
+app is hosted as a Lemma app on `lemma.work`; the entire backend runs as two Lemma
+functions (`forge_api`, `forge_generate`) that authenticate as their own workload
+principal. Sign in with a Lemma account to use it. See [§5](#5-architecture) for the
+deployed topology.
 
 ---
 
@@ -43,22 +54,22 @@ happens on one persistent, queryable, versioned surface — powered by a runtime
 
 ## 2. Product — what it does and how it solves the problem
 
-**Forge** is the one-screen AI Build Operator for that loop. It's **Lemma-native**: every unit of state — projects, nodes, edges, tasks, per-node guidance threads — is a row in a Lemma Cloud table, retrieved via `pod.records` / RAG-searched via `pod.files`, and mutated only through the same SDK. There is no side database.
+**Forge** is the one-screen AI Build Operator for that loop. Every unit of state — projects, nodes, edges, tasks, per-node guidance threads — is a row in a Lemma Cloud table, retrieved via `pod.records` and RAG-searched via `pod.files`, and mutated only through the same SDK. There's no side database.
 
-### The core loop (what a founder actually does)
+### The core loop (what a founder does)
 
 1. **Input.** Type a build idea into the pinned assistant textarea ("a shared to-do app with login", "a digital twin of a city block", …).
-2. **State.** Forge streams a system-architecture DAG onto the canvas — nodes coloured by layer (Client / API / Data / Integration / Infra), edges enforced as a DAG (cycle → HTTP 400 at the BFF), and every node persisted as a `nodes` record plus a `tasks` backlog seeded from the same generation call. What appears on the canvas *is* the state; refresh, come back tomorrow, it is still there.
-3. **Action.** Click any node → the assistant drawer fetches **RAG-grounded, per-node guidance** (10 build steps / 7 checks / 6 tech picks) from the org's `/knowledge` files, cached by a 16-char qhash so repeat clicks are instant. Drag nodes from the palette, connect handles, rename inline, or type `+ link a node…` to autocomplete an edge to another node.
-4. **Approval.** Hit **Lock design** → the whole board's nodes flip `designed → building`, tasks flip `none → approved`, and `projects.design_locked=true`. Approval is a **first-class record state**, not a chat-message convention.
-5. **Outcome.** With design locked, the outward-facing actions unblock: **Export scaffold** (approval-gated GitHub scaffold, `--push` requires `GITHUB_TOKEN` and is off by default), **Build digest** (a classifier over records → shipped / in-progress / blocked / ready + an agent-written prioritized digest). Trying either without the lock returns **HTTP 409**.
+2. **State.** Forge streams a system-architecture DAG onto the canvas — nodes coloured by layer (Client / API / Data / Integration / Infra), edges enforced as a DAG (a cycle returns HTTP 400 at the BFF), and every node is persisted as a `nodes` record plus a `tasks` backlog seeded from the same generation call. What's on the canvas *is* the state — refresh, come back tomorrow, it's still there.
+3. **Action.** Click any node and the assistant drawer fetches RAG-grounded, per-node guidance (10 build steps, 7 checks, 6 tech picks) from the `/knowledge` files, cached by a 16-char qhash so repeat clicks are instant. You can also drag nodes from the palette, connect handles, rename inline, or type `+ link a node…` to autocomplete an edge to another node.
+4. **Approval.** Hit **Lock design** and the whole board's nodes flip `designed → building`, tasks flip `none → approved`, and `projects.design_locked=true`. Approval is a first-class record state, not a chat-message convention.
+5. **Outcome.** With the design locked, the outward-facing actions unblock: **Export scaffold** (an approval-gated GitHub scaffold; `--push` requires `GITHUB_TOKEN` and is off by default) and **Build digest** (a classifier over records — shipped / in-progress / blocked / ready — plus an agent-written prioritized digest). Trying either before the lock returns HTTP 409.
 
-### Why this actually solves the problem
+### Why this works
 
-- **One surface, one state.** The founder never leaves the canvas. Every state change — a status flip, a rename, a new edge, a lock, an export — is a Lemma record write; the canvas is a live view over `pod.records`.
-- **AI does the boring scaffolding, humans steer.** Generation is a single Lemma agent call (`agent="hello"`, org runtime profile) that emits the whole architecture *and* the backlog in one JSON blob; the frontend never blocks — it streams stage events (`grounding → grounded → decompose → decomposed → refine → persisting → done`) via SSE, with a **Stop** button that aborts the generator cleanly and leaves no orphan project.
-- **Approval is enforceable.** The BFF's `require_design_lock` gate + `PermissionError → HTTP 409` mapping means outcomes cannot run before the design is signed off. No polite convention — a hard record-state check.
-- **Zero founder ops.** The agent's LLM lives in the **Lemma runtime profile** (server-side); the founder brings no OpenAI/Anthropic key. `Pod.from_env()` reads `~/.lemma/config.json`; token expiry self-heals in the BFF via `lemma auth print-token` on a 401.
+- **One surface, one state.** The founder never leaves the canvas. Every state change — a status flip, a rename, a new edge, a lock, an export — is a record write, and the canvas is just a live view over those records.
+- **AI handles the scaffolding, the founder steers.** Generation is a single agent call (`agent="hello"`, on the org's runtime profile) that emits the whole architecture and backlog in one JSON blob. The frontend never blocks on it — it streams stage events (`grounding → grounded → decompose → decomposed → refine → persisting → done`) over SSE, with a **Stop** button that aborts the generator cleanly and leaves no orphan project.
+- **Approval is enforced, not just implied.** The BFF's `require_design_lock` gate, mapped through `PermissionError → HTTP 409`, means outcomes genuinely can't run before the design is signed off — it's a hard record-state check, not a polite convention.
+- **Minimal ops overhead.** The agent's LLM runs on the runtime profile, server-side, so no OpenAI or Anthropic key is needed anywhere in this repo. `Pod.from_env()` reads `~/.lemma/config.json`, and token expiry self-heals in the BFF via `lemma auth print-token` on a 401.
 
 ---
 
@@ -130,7 +141,7 @@ lemma agents update hello --pod forge -d '{"agent_runtime": <profile-id>}'
 │   forgeApi (fetch + SSE stream reader + AbortController for Stop)              │    │
 └────────────────────────────────────┬────────────────────────────────────────────┘    │
                                      │ REST + SSE over :8000
-┌────────────────────────────────────▼───────────────── BFF ──────────────────────────┐
+┌────────────────────────────────────▼────────────────────── BFF ──────────────────────┐
 │  backend/main.py — FastAPI                                                          │
 │  ├─ /api/generate           (sync)                                                  │
 │  ├─ /api/generate/stream    (SSE — grounding→grounded→decompose→…→persisting→done)  │
@@ -152,6 +163,40 @@ lemma agents update hello --pod forge -d '{"agent_runtime": <profile-id>}'
 │  Agent:  "hello"  → org runtime profile (default: minimax-m3)                       │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Deployed topology (production — the live link)
+
+The FastAPI BFF above is the **local-dev** transport. In production there is **no
+server of ours at all**: the same React app is deployed as a Lemma app on
+`lemma.work`, and every BFF route was ported onto two **Lemma functions** that run
+on the Lemma runtime (always-on, free) and authenticate as their own **workload
+principal** — so the hourly token self-heal simply disappears.
+
+```
+Browser  →  https://forge-build-operator.apps.lemma.work   (Lemma sign-in)
+  host injects window.__LEMMA_CONFIG__ + serves /public/sdk/lemma-client.js
+        │  client.functions.run("forge_api",  { action, … })      ← fast ops (API fn)
+        │  client.functions.run("forge_generate", { prompt })     ← generation (JOB fn, polled)
+        ▼
+Lemma functions  (Pod.from_env() = workload principal; grants on the tables/folder/agent)
+  forge_api       (type API) → projects · project · guidance · node_status ·
+                               lock/unlock · export · digest · node+edge CRUD · relayout
+  forge_generate  (type JOB) → generate_architecture  (runs ~2 min → async)
+        ▼
+Same pod "forge": tables · /knowledge · agent "hello"
+```
+
+- **One frontend file changed** (`src/lib/forge-api.ts`): it feature-detects
+  `window.__LEMMA_CONFIG__` and routes to `client.functions.run(...)` when hosted, or
+  the REST BFF when local — identical return shapes, so the canvas/nodes are untouched.
+  A small `src/lib/lemma-client.ts` loads the SDK + gates auth before the app mounts.
+- **Backend as functions** lives in `backend/forge-fn/` — `build.py` inlines the
+  `backend/lemma-map/` core modules into one `code.py` per function (function bundles
+  ship a single file), keeping `lemma-map/` the single source of truth. Grants are
+  declared in each function's JSON bundle.
+- The only UX difference from local: hosted generation is a polled JOB with a
+  "building…" state instead of the live SSE stage-stepper (functions can't stream to
+  the browser). Everything else is identical.
 
 **Layered data model** (all in the pod, all mutated via `pod.records`):
 
@@ -280,6 +325,28 @@ bun run build          # tsc -b && vite build — the real typecheck
 #       (fake "tsc" v6.0.3 that prints help). Use ./node_modules/.bin/tsc
 #       for a bare tsc if you need one.
 ```
+
+### Deploy / redeploy (the live link)
+
+```bash
+# Backend: (re)build the single-file function bundles from lemma-map/, then import
+cd backend
+.venv/bin/python forge-fn/build.py
+lemma pods import forge-fn/functions            # creates/updates forge_api + forge_generate
+
+# Frontend: build, then deploy the static bundle as a Lemma app
+cd ../frontend
+bun run build
+lemma apps deploy forge-build-operator dist --yes
+
+# Smoke without a browser
+lemma functions run forge_api -d '{"action":"projects"}'
+lemma functions run forge_generate -d '{"prompt":"a todo app"}' --wait
+```
+
+Grant judges access: add **ayush@gappy.ai** as a pod member from the Lemma web
+console (pod **forge** → Members → invite). The deployed app is `visibility: POD`,
+so pod members can open the URL and sign in.
 
 ---
 
