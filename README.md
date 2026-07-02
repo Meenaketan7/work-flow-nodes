@@ -344,10 +344,6 @@ lemma functions run forge_api -d '{"action":"projects"}'
 lemma functions run forge_generate -d '{"prompt":"a todo app"}' --wait
 ```
 
-Grant judges access: add **ayush@gappy.ai** as a pod member from the Lemma web
-console (pod **forge** → Members → invite). The deployed app is `visibility: POD`,
-so pod members can open the URL and sign in.
-
 ---
 
 ## 8. Screenshots
