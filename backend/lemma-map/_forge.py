@@ -24,12 +24,17 @@ from lemma_sdk.errors import (
     LemmaRateLimitError,
     LemmaServerError,
 )
+from lemma_sdk.openapi_client.models.create_conversation_request import (
+    CreateConversationRequest,
+)
 
 # Lemma Cloud intermittently returns nginx 503 / rate-limits / drops a connection;
 # these are transient and safe to retry (the agent keeps running server-side).
 TRANSIENT = (LemmaServerError, LemmaRateLimitError, LemmaConnectionError)
 
 AGENT = "hello"           # starter agent wired to the org runtime (no personal key)
+MODEL = "deepseek-v4-flash"  # flash model — much faster than the default minimax-m3
+RUNTIME_PROFILE = "system:lemma"
 KNOWLEDGE = "/knowledge"  # RAG corpus seeded by seed_knowledge.py
 LAYERS = ("client", "api", "data", "integration", "infra")
 # left -> right column order on the canvas: foundations left, user-facing right
@@ -84,8 +89,14 @@ def ask(pod: Pod, message: str, *, timeout: int = 300, title: str = "forge") -> 
     non-user TEXT message appears (or the conversation reaches a terminal state).
     Tolerates transient blips during polling — the agent keeps running.
     """
-    conv = retry(lambda: pod.agents.run(AGENT, message, title=title))
+    req = CreateConversationRequest.from_dict({
+        "agent_name": AGENT,
+        "title": title,
+        "agent_runtime": {"model_name": MODEL, "profile_id": RUNTIME_PROFILE},
+    })
+    conv = retry(lambda: pod.conversations.create(req))
     cid = str(conv.id)
+    retry(lambda: pod.conversations.send(cid, message))
     deadline = time.time() + timeout
     status = None
     while time.time() < deadline:
@@ -159,14 +170,13 @@ def search_knowledge(pod: Pod, queries: list[str], *, budget: int = 1800, per_qu
     return "\n".join(chunks), paths
 
 
-def ground(pod: Pod, prompt: str, *, budget: int = 1800) -> str:
-    """Architecture-time grounding: the 3 queries generate_architecture uses."""
+def ground(pod: Pod, prompt: str, *, budget: int = 900) -> str:
+    """Architecture-time grounding — kept lean (fewer/smaller searches) for speed."""
     queries = [
-        f"architecture, components and layers for: {prompt}",
-        f"recommended tech stack for: {prompt}",
+        f"architecture, components, layers and tech stack for: {prompt}",
         "how to sequence an MVP build and write the backlog",
     ]
-    context, _ = search_knowledge(pod, queries, budget=budget)
+    context, _ = search_knowledge(pod, queries, budget=budget, per_query=1)
     return context
 
 
